@@ -1,0 +1,198 @@
+import arcpy
+import numpy as np
+
+
+# **************************** Parameters ***************************************
+
+input_layer = arcpy.GetParameterAsText(0)
+field_for_analysis = arcpy.GetParameterAsText(1)
+type_analysis = arcpy.GetParameterAsText(2)
+map_symbology = arcpy.GetParameterAsText(3)
+output =  arcpy.GetParameterAsText(4)
+
+arcpy.AddMessage('''Here are the specified -,
+    \tParameter 1: {0}
+    \tParameter 2: {1}
+    \tParameter 3: {2}
+    \tParameter 4: {3}
+    \tOutput features: {4}'''\
+    .format(input_layer,field_for_analysis,type_analysis,map_symbology,output)
+    )
+
+
+arcpy.AddMessage('''Environments-
+    \tWorkspace:{0}
+    \tOverwrite:{1}
+    \tScratchGDB:{2}
+    \tPackageworkspace:{3}'''\
+    .format(arcpy.env.workspace,arcpy.env.overwriteOutput,\
+        arcpy.env.scratchGDB,arcpy.env.packageWorkspace))
+
+#enviroment
+arcpy.env.overwriteOutput = True
+aprx= arcpy.mp.ArcGISProject('CURRENT')
+out_features_analysis = arcpy.env.scratchGDB + '/analysis'
+
+layer_copy = arcpy.CopyFeatures_management(input_layer,"test")
+
+#Here
+
+def import_column_data(shp_data,column):
+    """
+    Simple function to import field Columns and convert to an array.
+
+    Parameter 1:
+
+        shp_data (string): Must be a path to a shp file. 
+
+    Parameter 2: 
+
+        column (string): Field name for analysis.
+
+    Return:
+
+        numpy array {Columns = 1, Rows = N} 
+    """
+    raw_data = []
+
+    with arcpy.da.SearchCursor(shp_data,[f"{column}"]) as search_cursor:
+        for row in search_cursor:
+            raw_data.append(list(row))   
+    return np.array(raw_data)
+
+
+# function to check for uniquie id value and return the unique id name.
+def unique_id(shp_data):
+
+    # Locate all current field names 
+    desc = arcpy.Describe(shp_data)
+    field_names = [f.name for f in desc.fields]
+
+    unique_name = "fragile_id"
+
+    if unique_name not in field_names:
+
+        arcpy.management.AddField(shp_data,unique_name,"LONG")
+
+        id_num = 1
+        with arcpy.da.UpdateCursor(shp_data, [unique_name]) as update_cursor:
+            for row in update_cursor:
+                row[0] = id_num
+                update_cursor.updateRow(row)
+                id_num += 1
+
+    return unique_name
+
+
+
+def find_entry(lib_id, data):
+    for r in data:
+        if lib_id == r[0]:
+            return r[1]
+
+
+
+
+
+
+
+def mean_analysis(_input_layer,_field_for_analysis,_map_symbology):
+
+    field_values = import_column_data(_input_layer,_field_for_analysis)
+    field_mean = round(field_values.mean(),3)
+    analysis_type = "A_Mean"
+
+    mean_values = []
+    value_count = 0
+    below_mean = 0
+    above_mean = 0
+
+    # iterate field for analysis and compare against the field mean
+    with arcpy.da.SearchCursor(
+        _input_layer,[f"{unique_id(_input_layer)}",f"{_field_for_analysis}"]) as search_cursor:
+
+        for row in search_cursor:
+            
+            if row[1] >= field_mean:
+                mean_values.append([row[0],row[1]])
+                above_mean += 1
+                
+            else:
+                mean_values.append([row[0],0])
+                below_mean += 1
+
+            
+            value_count += 1
+
+    # Add new field for analysis type {A_mean, B_mean, W_mean}
+    arcpy.management.AddField(_input_layer,analysis_type,"FLOAT")
+
+    # iterate new field and insert new values.
+
+    for row_xy in mean_values:
+        
+        where_clause = """"{}"={}""".format('fragile_id',row_xy[0])
+        
+        with arcpy.da.UpdateCursor(_input_layer, ['fragile_id', f'{analysis_type}'],
+                                    where_clause=where_clause) as cursor:
+            
+            for row in cursor:
+                row[1] = row_xy[1]
+                cursor.updateRow(row)
+    
+
+
+
+
+
+
+
+
+
+    
+    
+    arcpy.AddMessage('''Mean Results-
+    \tMean:{0}'''\
+
+    .format(mean_values[0:5])
+    )
+
+
+
+
+
+
+    
+
+
+mean_analysis(input_layer,field_for_analysis,map_symbology)
+
+
+lyr0 = aprx.activeMap.addDataFromPath(layer_copy)
+layer = aprx.activeMap.listLayers(lyr0)[0]
+
+# # Get the feature layer name from the user shapefile path
+# # This will make it easy to 
+# layerName = (input_layer.split("\\")[-1])
+# layerName = layerName[0:layerName.find('.')]
+
+
+# # Add to contents pane
+# layer = aprx.activeMap.listLayers(lyr0)[0]
+
+
+
+
+
+# Create the symbology Graducated color map type or Graduated symbols
+symbology = layer.symbology
+if map_symbology == 'Graduated':
+    symbology.updateRenderer('SimpleRenderer')
+    symbology.updateRenderer('GraduatedColorsRenderer')
+    symbology.renderer.classificationField = "A_Mean"
+    # symbology.renderer.breakCount = int(in_number_of_classes)
+    symbology.renderer.colorRamp = aprx.listColorRamps('Greens (Continuous)')[0]
+    layer.symbology = symbology
+
+
+

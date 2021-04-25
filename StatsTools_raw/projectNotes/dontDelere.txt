@@ -1,0 +1,193 @@
+import arcpy
+import numpy as np
+
+
+# **************************** Parameters ***************************************
+
+shapefile = arcpy.GetParameterAsText(0)
+analysis = arcpy.GetParameterAsText(1)
+type_analysis = arcpy.GetParameterAsText(2)
+map_type = arcpy.GetParameterAsText(3)
+output =  arcpy.GetParameterAsText(4)
+
+arcpy.AddMessage('''Here are the specified -,
+    \tParameter 1: {0}
+    \tParameter 2: {1}
+    \tParameter 3: {2}
+    \tParameter 4: {3}
+    \tOutput features: {4}'''\
+    .format(shapefile,analysis,type_analysis,map_type,output)
+    )
+
+
+arcpy.AddMessage('''Environments-
+    \tWorkspace:{0}
+    \tOverwrite:{1}
+    \tScratchGDB:{2}
+    \tPackageworkspace:{3}'''\
+    .format(arcpy.env.workspace,arcpy.env.overwriteOutput,\
+        arcpy.env.scratchGDB,arcpy.env.packageWorkspace))
+
+
+# ****************************** Helper Functions *********************
+
+def getStatFunction(shp,col,anls_typ):
+
+    polygon_id = None
+    # Mean
+    if anls_typ == "above mean" or anls_typ == "below mean":
+
+        polygon_id = shp_mean(shp,col,anls_typ)
+    
+    #StD
+    elif anls_typ == "1- STD":
+
+        pass
+    
+    # VALUES < IQR-3 > VALUES
+    elif anls_typ == "Outliers":
+
+        pass
+
+    else:
+
+        pass
+
+    return polygon_id
+
+# Activate Layer into contents pane
+def _add_layer_to_contents_pane(_path):
+
+    layer_path = aprx.activeMap.addDataFromPath(_path)
+    fileName_with_exstension = _path.split('\\')[-1]
+    layerName = fileName_with_exstension[0:fileName_with_exstension.find('.')]
+    active_layer = aprx.activeMap.listLayers(layerName[0:layerName.find('.')])[0]
+
+    return active_layer 
+    
+
+
+
+
+
+
+
+# ***************************** Stats Helper Functions **************************
+
+# function to iterate shapefile
+def get_values(shp, column):
+    
+    raw_data = []
+    with arcpy.da.SearchCursor(shp,column) as search_cursor:
+            for row in search_cursor:
+                raw_data.append(list(row))
+    
+    return raw_data
+
+
+# Get polygons for mapping/Symbology
+def get_values(values,col):
+
+
+    
+    pass
+    
+
+
+# *************************** Statistical Functions *****************************
+
+
+# Above & Below the mean
+def attr_mean(shp,col,analysis_type):
+    
+    result = []
+    array_values = np.array(rows)
+    val_mean = array_values.mean() # mean
+    
+    if analysis_type == "above mean":
+        with arcpy.da.SearchCursor(layer_copy,[f"{col}","id"],\
+                                   where_clause=""""{}">{}""".format(col[0],val_mean)) as search_cursor:
+            
+            for row in search_cursor:
+                result.append(list(row))
+    else:
+         with arcpy.da.SearchCursor(layer_copy,[f"{col}","id"],\
+                                   where_clause=""""{}"<{}""".format(col[0],val_mean)) as search_cursor:
+            
+            for row in search_cursor:
+                result.append(list(row))
+    
+    
+    # Create new field for results
+    arcpy.management.AddField(shp,"mean_result","DOUBLE")
+    ids = [i[1] for i in result]
+
+    # Update ne field with results. If result does not exist, field = 0
+    with arcpy.da.UpdateCursor(shp, ["id","mean_result"]) as update_cursor:
+        for row in update_cursor:
+            if row[0] in ids:
+                for i in results:
+                    if row[0] == i[1]:
+                        row[0] = i[0]
+            else:
+                row[0] = 0
+
+            update_cursor.updateRow(row)
+
+    return 
+        
+
+
+
+
+# ************************** Settings *******************************************
+def settings():
+    
+    arcpy.env.overwriteOutput = True
+    aprx= arcpy.mp.ArcGISProject('CURRENT')
+    out_features_analysis = arcpy.env.scratchGDB + '/analysis'
+    lyr0 = aprx.activeMap.addDataFromPath(shapefile)
+
+    # Get the feature layer name from the user shapefile path
+    # This will make it easy to 
+
+    layerName = (shapefile.split("\\")[-1])
+    layerName = layerName[0:layerName.find('.')]
+
+    # Add to contents pane
+    layer = aprx.activeMap.listLayers(lyr0)[0]
+
+
+    return 
+
+def main_01():
+    
+    settings()
+    
+    # getStatFunction(layer,analysis,Type_analysis)
+
+
+    # # Create the symbology Graducated color map type or Graduated symbols
+    # symbology = layer.symbology
+    # if Map_Type == 'Graduated':
+    #     symbology.updateRenderer('SimpleRenderer')
+    #     symbology.updateRenderer('GraduatedColorsRenderer')
+    #     symbology.renderer.classificationField = analysis
+    #     # symbology.renderer.breakCount = int(in_number_of_classes)
+    #     symbology.renderer.colorRamp = aprx.listColorRamps('Greens (Continuous)')[0]
+    #     layer.symbology = symbology
+
+
+
+
+
+    # elif type_of_map == 'Graduated Symbols':
+    #     symbology.updateRenderer('GraduatedSymbolsRenderer')
+    #     symbology.renderer.classificationField = 'SUM_POP_RA'
+    #     symbology.renderer.breakCount = int(in_number_of_classes)
+    #     symbology.renderer.minimumSymbolSize = 5
+    #     symbology.renderer.maximumSymbolSize = 20
+    #     layer_copy.symbology = symbology
+
+
+
