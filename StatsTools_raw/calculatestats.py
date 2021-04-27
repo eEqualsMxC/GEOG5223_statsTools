@@ -81,11 +81,6 @@ def unique_id(shp_data):
 
     return unique_name
 
-# def find_entry(lib_id, data):
-#     for r in data:
-#         if lib_id == r[0]:
-#             return r[1]
-
 
 # ******************************** Mean Analaysis ************************
 
@@ -94,7 +89,7 @@ def mean_analysis(_input_layer,_field_for_analysis,_map_symbology,type_analysis)
 
     field_values = import_column_data(_input_layer,_field_for_analysis)
     field_mean = round(field_values.mean(),3)
-    #field_std =  round(np.std(field_values),3)
+    median = round(np.median(field_values),3)
     analysis_string = None
     
 
@@ -118,6 +113,18 @@ def mean_analysis(_input_layer,_field_for_analysis,_map_symbology,type_analysis)
                     mean_values.append([row[0],0])
                     below_mean += 1
 
+        total = above_mean + below_mean
+
+        pct_abm = round((above_mean/total),3)
+        arcpy.AddMessage('''\n
+                            \t***** Mean Analysis *****
+                            \tMean: {0}
+                            \tMeadian: {1}
+                            \tNumber of values above the mean: {2}
+                            \tPercent of {3} above the mean: {4}\n\n'''\
+                            .format(field_mean,median,above_mean,_field_for_analysis,pct_abm))
+
+
     else:
 
         analysis_string = f"{_field_for_analysis}_BelowMean"
@@ -135,7 +142,16 @@ def mean_analysis(_input_layer,_field_for_analysis,_map_symbology,type_analysis)
                     mean_values.append([row[0],0])
                     below_mean += 1
 
-        
+
+        total = above_mean + below_mean
+        pct_bm = round((below_mean/total),3)
+        arcpy.AddMessage('''\n
+                            \t***** Mean Analysis *****
+                            \tMean: {0}
+                            \tMeadian: {1}
+                            \tNumber of values below the mean: {2}
+                            \tPercent of {3} below the mean: {4}\n\n'''\
+                            .format(field_mean,median,below_mean,_field_for_analysis,pct_bm))
 
 
     # Add new field for analysis type
@@ -153,22 +169,6 @@ def mean_analysis(_input_layer,_field_for_analysis,_map_symbology,type_analysis)
                 row[1] = row_xy[1]
                 cursor.updateRow(row)
         
-
-        # Todo Add Messages 
-
-        # # Add messages
-        # mean_values = []
-        # value_count = 0
-        # below_mean = 0
-        # above_mean = 0
-        # arcpy.AddMessage('''Mean Results-
-        # \tMean: {0}
-        # \tTotal Objects Above the Mean: {1}
-        # \tTotal Objects Below the Mean: {2}
-        # \tTotal Samples: {3}
-        # \tStandard Deviation (total pop): {4}'''\
-        # .format(field_mean,above_mean,below_mean,below_mean+above_mean,))
-
     
     return analysis_string
 
@@ -201,13 +201,14 @@ def STD1_analysis(_input_layer,_field_for_analysis,_map_symbology,type_analysis)
 
         for row in search_cursor:
             
-            if row[1] > right_tail and row[1] < left_tail :
+            if row[1] > right_tail and row[1] < left_tail:
                 std_values.append([row[0],row[1]])
                 within += 1
                 
             else:
                 std_values.append([row[0],0])
                 outside += 1
+    
         
     
     # Add new field for analysis type
@@ -226,7 +227,15 @@ def STD1_analysis(_input_layer,_field_for_analysis,_map_symbology,type_analysis)
                 cursor.updateRow(row)
 
     
-    # Todo Add Messages
+    # Messages
+    arcpy.AddMessage('''\n
+                            \t***** Mean Analysis *****
+                            \tMean: {0}
+                            \t1 STD: {1}
+                            \tRight tail: {2}
+                            \tLeft Tail: {3}
+                            \tQty within 1 STD: {4}\n\n'''\
+                            .format(field_mean, field_1Std, right_tail, left_tail, within))
 
     
     return analysis_string
@@ -343,6 +352,7 @@ def outliers_analysis(_input_layer,_field_for_analysis,_map_symbology,type_analy
 
 
 fieldname = None
+
 if type_analysis == "above mean" or  type_analysis == "below mean":
 
     fieldname = mean_analysis(output,field_for_analysis,map_symbology,type_analysis)
@@ -381,6 +391,11 @@ if map_symbology == 'Graduated':
         symbology.renderer.colorRamp = aprx.listColorRamps(color_scheme)[0]
         
     layer.symbology = symbology
+
+
+
+
+
 
 
 
